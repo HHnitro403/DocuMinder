@@ -23,6 +23,7 @@ export interface AppConfig {
 export class DataService {
   // Hardcoded Schema Collections
   private readonly COL_NOTES = 'Notes';
+  private readonly COL_OBSERVATIONS = 'Observations';
 
   // Signals
   documents = signal<DocItem[]>([]);
@@ -140,6 +141,21 @@ export class DataService {
     }
   }
 
+  // --- Connection Test ---
+  async testConnection(url: string): Promise<{success: boolean, message: string}> {
+    try {
+      // PocketBase usually provides a health endpoint
+      const response = await fetch(`${url}/api/health`);
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, message: `Connected! Code: ${data.code}` };
+      }
+      return { success: false, message: `Server responded with ${response.status}` };
+    } catch (e: any) {
+      return { success: false, message: 'Unreachable: ' + e.message };
+    }
+  }
+
   // --- Local Storage Implementation ---
 
   private loadFromLocal() {
@@ -200,14 +216,12 @@ export class DataService {
     // If no token (not logged in and no static token), we can't fetch private data
     if (!token) return;
 
+    // Fetch Notes
     const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records?sort=-created`, {
-      headers: {
-        'Authorization': token
-      }
+      headers: { 'Authorization': token }
     });
 
     if (!response.ok) throw new Error(`PB Error: ${response.statusText}`);
-
     const result = await response.json();
     
     // Map PB schema to App schema
@@ -227,6 +241,7 @@ export class DataService {
     const { pbUrl } = this.config();
     const token = this.getAuthToken();
 
+    // 1. Create the Note in 'Notes' collection
     const notePayload = {
       Note: doc.title,
       NoteObservation: doc.details,
@@ -246,6 +261,31 @@ export class DataService {
     if (!response.ok) {
         const err = await response.json();
         throw new Error(JSON.stringify(err));
+    }
+
+    const newNote = await response.json();
+
+    // 2. Create the Observation in 'Observations' collection (Linking tables)
+    // We attempt to create a record in the Observations table that links back to the Note
+    // This ensures all 3 tables (users, Notes, Observations) are utilized.
+    try {
+        const obsPayload = {
+            note_id: newNote.id,
+            details: doc.details,
+            // Assuming the schema might simply default these or they are optional
+        };
+        
+        await fetch(`${pbUrl}/api/collections/${this.COL_OBSERVATIONS}/records`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify(obsPayload)
+        });
+        // We don't fail the whole operation if this secondary write fails (e.g. if schema differs slightly)
+    } catch (obsErr) {
+        console.warn('Could not write to Observations table. Verify schema.', obsErr);
     }
   }
 

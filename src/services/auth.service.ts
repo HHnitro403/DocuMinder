@@ -8,6 +8,7 @@ interface UserData {
   role: string;
   id: string;
   email?: string;
+  name?: string;
 }
 
 @Injectable({
@@ -40,18 +41,19 @@ export class AuthService {
     }
   }
 
-  async login(user: string, pass: string): Promise<boolean> {
+  async login(email: string, pass: string): Promise<boolean> {
     const config = this.dataService.config();
 
     if (config.usePocketBase) {
-      return await this.loginPocketBase(user, pass, config.pbUrl);
+      return await this.loginPocketBase(email, pass, config.pbUrl);
     } else {
-      return this.loginLocal(user, pass);
+      return this.loginLocal(email, pass);
     }
   }
 
   private async loginPocketBase(identity: string, pass: string, url: string): Promise<boolean> {
     try {
+      // In PocketBase, the 'identity' field for auth-with-password can be the email
       const response = await fetch(`${url}/api/collections/users/auth-with-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,9 +67,11 @@ export class AuthService {
       
       const userData: UserData = {
         id: record.id,
-        username: record.username || record.email,
+        // Fallback: If username field is empty/missing, use name or email
+        username: record.username || record.name || record.email, 
         email: record.email,
-        role: record.Role || 'user' // Mapping 'Role' field from PB (Case Sensitive!)
+        name: record.name,
+        role: record.Role || 'user' // Mapping 'Role' field from PB
       };
 
       this.saveSession(userData, data.token);
@@ -78,12 +82,14 @@ export class AuthService {
     }
   }
 
-  private loginLocal(user: string, pass: string): boolean {
-    if (user === 'docuser' && pass === 'docuser') {
+  private loginLocal(email: string, pass: string): boolean {
+    // Local fallback for offline/demo mode
+    if ((email === 'admin@local' || email === 'docuser') && pass === 'docuser') {
       const userData: UserData = {
         id: 'local-admin',
-        username: 'docuser',
-        role: 'admin' // Local default user is always admin
+        username: 'Local Admin',
+        email: email,
+        role: 'admin'
       };
       this.saveSession(userData, '');
       return true;
@@ -119,7 +125,6 @@ export class AuthService {
   private setInternalState(user: UserData, token: string) {
     this.isLoggedIn.set(true);
     this.currentUser.set(user);
-    // Role check: supports 'admin' (lowercase) or 'Admin' just in case, but PB screenshot showed lowercase options
     this.isAdmin.set(user.role.toLowerCase() === 'admin');
     
     if (token) {

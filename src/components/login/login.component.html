@@ -24,14 +24,14 @@
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
             <div class="relative">
-              <span class="absolute left-3 top-3 text-gray-500"><i class="fa-solid fa-user"></i></span>
+              <span class="absolute left-3 top-3 text-gray-500"><i class="fa-solid fa-envelope"></i></span>
               <input 
-                formControlName="username" 
-                type="text" 
+                formControlName="email" 
+                type="email" 
                 class="w-full bg-gray-900 border border-gray-600 rounded-lg py-2.5 pl-10 pr-4 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder-gray-600"
-                placeholder="Enter username"
+                placeholder="name@example.com"
               >
             </div>
           </div>
@@ -61,7 +61,11 @@
     </div>
     
     <div class="bg-gray-900/50 p-4 text-center border-t border-gray-700">
-      <p class="text-xs text-gray-500">Default Access: <span class="font-mono text-gray-400">docuser / docuser</span></p>
+      <p class="text-xs text-gray-500">
+        Connects to: <strong class="text-gray-400">users</strong> collection.
+        <br>
+        Fields used: <span class="font-mono">email</span>, <span class="font-mono">password</span>.
+      </p>
     </div>
 
   </div>

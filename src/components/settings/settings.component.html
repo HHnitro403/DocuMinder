@@ -48,16 +48,30 @@
               
               <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">Server URL</label>
-                <input formControlName="pbUrl" type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="http://127.0.0.1:8090">
+                <div class="flex gap-2">
+                  <input formControlName="pbUrl" type="text" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="http://127.0.0.1:8090">
+                  <button type="button" (click)="testConnection()" [disabled]="isTesting()" class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg border border-gray-600 transition-colors">
+                    @if (isTesting()) { <i class="fa-solid fa-circle-notch fa-spin"></i> }
+                    @else { <i class="fa-solid fa-plug"></i> }
+                  </button>
+                </div>
+                
+                @if (testResult()) {
+                  <div class="mt-2 text-xs font-bold" [class.text-emerald-400]="testResult()?.success" [class.text-red-400]="!testResult()?.success">
+                    <i class="fa-solid" [class.fa-check]="testResult()?.success" [class.fa-xmark]="!testResult()?.success"></i>
+                    {{ testResult()?.message }}
+                  </div>
+                }
               </div>
               
               <div class="bg-gray-900/50 p-3 rounded border border-gray-700">
-                 <p class="text-xs text-gray-400 mb-1">System Status:</p>
-                 <div class="flex gap-2 mb-2">
-                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">Notes</span>
+                 <p class="text-xs text-gray-400 mb-1">Target Schema:</p>
+                 <div class="flex flex-wrap gap-2 mb-2">
                     <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">users</span>
+                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">Notes</span>
+                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">Observations</span>
                  </div>
-                 <p class="text-xs text-gray-500 italic">Login required. Only 'admin' role can modify these settings.</p>
+                 <p class="text-xs text-gray-500 italic">Admin role required for configuration.</p>
               </div>
 
               <div>

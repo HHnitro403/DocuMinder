@@ -1,5 +1,5 @@
 
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { DataService, AppConfig } from '../../services/data.service';
@@ -18,6 +18,10 @@ export class SettingsComponent {
   fb = inject(FormBuilder);
 
   settingsForm: FormGroup;
+  
+  // Test Connection State
+  isTesting = signal(false);
+  testResult = signal<{success: boolean, message: string} | null>(null);
 
   constructor() {
     this.settingsForm = this.fb.group({
@@ -29,6 +33,19 @@ export class SettingsComponent {
     // Load current settings into form
     const current = this.dataService.config();
     this.settingsForm.patchValue(current);
+  }
+
+  async testConnection() {
+    const url = this.settingsForm.get('pbUrl')?.value;
+    if (!url) return;
+
+    this.isTesting.set(true);
+    this.testResult.set(null);
+
+    const result = await this.dataService.testConnection(url);
+    
+    this.testResult.set(result);
+    this.isTesting.set(false);
   }
 
   saveSettings() {
