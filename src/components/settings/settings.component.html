@@ -1,0 +1,97 @@
+
+<div class="max-w-2xl mx-auto mt-8">
+
+  @if (!isAuthenticated()) {
+    <!-- Lock Screen -->
+    <div class="bg-gray-800 rounded-2xl p-8 shadow-2xl border border-gray-700 text-center max-w-md mx-auto">
+      <div class="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i class="fa-solid fa-lock text-2xl text-emerald-500"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">Restricted Access</h2>
+      <p class="text-gray-400 mb-6">Please enter the administrator password to configure database connections.</p>
+      
+      <div class="mb-4">
+        <input 
+          type="password" 
+          [value]="passwordAttempt()" 
+          (input)="updatePassword($event)"
+          (keyup.enter)="unlock()"
+          placeholder="Password (try 'admin')" 
+          class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-center text-lg focus:border-emerald-500 focus:outline-none transition-colors"
+        >
+      </div>
+
+      @if (authError()) {
+        <p class="text-red-400 text-sm mb-4">{{ authError() }}</p>
+      }
+
+      <button (click)="unlock()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition-colors">
+        Unlock Settings
+      </button>
+    </div>
+  } @else {
+    <!-- Config Form -->
+    <div class="bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-700">
+      <div class="bg-gray-700/50 p-6 border-b border-gray-700">
+        <h2 class="text-xl font-bold text-white flex items-center gap-3">
+          <i class="fa-solid fa-server text-emerald-500"></i>
+          System Configuration
+        </h2>
+        <p class="text-gray-400 text-sm mt-1">Manage data persistence strategies and API connections.</p>
+      </div>
+
+      <div class="p-6">
+        <form [formGroup]="settingsForm" (ngSubmit)="saveSettings()" class="space-y-6">
+          
+          <!-- Mode Toggle -->
+          <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-700">
+            <label class="flex items-center cursor-pointer justify-between">
+              <div>
+                <span class="block font-medium text-white">Use PocketBase Database</span>
+                <span class="block text-sm text-gray-400">Switch from LocalStorage to remote backend</span>
+              </div>
+              <div class="relative">
+                <input type="checkbox" formControlName="usePocketBase" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </div>
+            </label>
+          </div>
+
+          @if (settingsForm.get('usePocketBase')?.value) {
+            <div class="space-y-4 animate-fade-in pl-4 border-l-2 border-emerald-500/30">
+              <h3 class="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">PocketBase Connection Details</h3>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Server URL</label>
+                <input formControlName="pbUrl" type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="http://127.0.0.1:8090">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Collection Name</label>
+                <input formControlName="pbCollection" type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="notes">
+                <p class="text-xs text-gray-500 mt-1">Expected schema: Note (text), NoteObservation (text), expiration_date (date)</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Auth Token (Optional)</label>
+                <input formControlName="pbAuthToken" type="password" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="Bearer ...">
+                <p class="text-xs text-gray-500 mt-1">Required if collection rules are private.</p>
+              </div>
+            </div>
+          } @else {
+            <div class="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg text-blue-200 text-sm">
+              <i class="fa-solid fa-info-circle mr-2"></i>
+              Currently using <strong>LocalStorage</strong>. Data is saved in your browser only.
+            </div>
+          }
+
+          <div class="pt-4 border-t border-gray-700 flex justify-end">
+            <button type="submit" [disabled]="!settingsForm.valid" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-medium shadow-lg shadow-emerald-900/50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              Save Configuration
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>

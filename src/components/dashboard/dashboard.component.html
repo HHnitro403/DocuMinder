@@ -1,0 +1,122 @@
+
+<div class="max-w-6xl mx-auto pb-20">
+  
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-white">Document Status</h1>
+      <p class="text-gray-400 mt-1">Manage expirations, renewals, and notes.</p>
+    </div>
+    
+    <button (click)="toggleForm()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg shadow-lg shadow-emerald-900/50 flex items-center gap-2 transition-all active:scale-95">
+      <i class="fa-solid" [class.fa-plus]="!showForm()" [class.fa-xmark]="showForm()"></i>
+      {{ showForm() ? 'Cancel' : 'Add Document' }}
+    </button>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-sm">
+      <div class="text-gray-400 text-sm mb-1">Total</div>
+      <div class="text-2xl font-bold text-white">{{ stats().total }}</div>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+      <div class="text-red-400 text-sm mb-1">Expired</div>
+      <div class="text-2xl font-bold text-white">{{ stats().expired }}</div>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-xl border-l-4 border-amber-500 shadow-sm">
+      <div class="text-amber-400 text-sm mb-1">Renew Soon</div>
+      <div class="text-2xl font-bold text-white">{{ stats().urgent }}</div>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-xl border-l-4 border-emerald-500 shadow-sm">
+      <div class="text-emerald-400 text-sm mb-1">Good Standing</div>
+      <div class="text-2xl font-bold text-white">{{ stats().ok }}</div>
+    </div>
+  </div>
+
+  <!-- Add Form -->
+  @if (showForm()) {
+    <div class="bg-gray-800 rounded-xl p-6 mb-8 border border-gray-700 shadow-2xl animate-fade-in-down">
+      <h2 class="text-xl font-semibold text-white mb-4">New Document Entry</h2>
+      <form [formGroup]="docForm" (ngSubmit)="onSubmit()" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Document Title (Note)</label>
+            <input formControlName="title" type="text" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors" placeholder="e.g., Driver's License">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Expiration Date</label>
+            <input formControlName="expirationDate" type="date" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-400 mb-1">Observations / Details</label>
+          <textarea formControlName="details" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Add notes, reminder intervals, etc..."></textarea>
+        </div>
+        <div class="flex justify-end pt-2">
+          <button type="submit" [disabled]="!docForm.valid || dataService.isLoading()" class="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-2 rounded-lg font-medium transition-colors">
+            @if (dataService.isLoading()) { Saving... } @else { Save Document }
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (dataService.error()) {
+    <div class="bg-red-900/20 border border-red-500 text-red-200 p-4 rounded-lg mb-6 flex items-center gap-3">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>{{ dataService.error() }}</span>
+    </div>
+  }
+
+  <!-- Document List -->
+  <div class="space-y-3">
+    @if (dataService.isLoading() && !showForm()) {
+      <div class="text-center py-10 text-gray-500 animate-pulse">
+        <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2"></i>
+        <p>Syncing data...</p>
+      </div>
+    }
+
+    @for (doc of sortedDocs(); track doc.id) {
+      <div class="bg-gray-800 rounded-lg p-5 border-l-4 shadow-md flex flex-col md:flex-row gap-4 justify-between group hover:bg-gray-800/80 transition-all" [class]="getStatusColor(doc.expirationDate)">
+        
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-1">
+            <h3 class="text-lg font-bold text-white">{{ doc.title }}</h3>
+            <span class="text-xs px-2 py-0.5 rounded-full uppercase tracking-wider font-bold bg-gray-900/50">
+              {{ getStatusText(doc.expirationDate) }}
+            </span>
+          </div>
+          <p class="text-gray-400 text-sm mb-2">{{ doc.details || 'No additional details.' }}</p>
+          <div class="flex items-center gap-4 text-xs font-mono opacity-70">
+            <span title="Expiration Date"><i class="fa-regular fa-calendar-xmark mr-1"></i> {{ doc.expirationDate | date:'mediumDate' }}</span>
+            <span class="hidden md:inline">|</span>
+            <span title="Created"><i class="fa-solid fa-asterisk mr-1"></i> Added: {{ doc.created | date:'shortDate' }}</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 md:border-l md:border-white/10 md:pl-4">
+           <!-- Mock Email Notification Button -->
+           <button class="w-10 h-10 rounded-full bg-gray-900 hover:bg-blue-600/20 hover:text-blue-400 text-gray-500 transition-colors flex items-center justify-center" title="Send Reminder Email (Mock)">
+             <i class="fa-regular fa-envelope"></i>
+           </button>
+           
+           <button (click)="deleteDoc(doc.id)" class="w-10 h-10 rounded-full bg-gray-900 hover:bg-red-600/20 hover:text-red-400 text-gray-500 transition-colors flex items-center justify-center" title="Delete">
+             <i class="fa-solid fa-trash"></i>
+           </button>
+        </div>
+      </div>
+    } @empty {
+      @if (!dataService.isLoading()) {
+        <div class="text-center py-16 bg-gray-800/30 rounded-xl border border-dashed border-gray-700">
+          <i class="fa-regular fa-folder-open text-5xl text-gray-600 mb-4"></i>
+          <p class="text-gray-400 text-lg">No documents tracked.</p>
+          <p class="text-gray-500 text-sm">Add a document to start tracking expirations.</p>
+        </div>
+      }
+    }
+  </div>
+
+</div>

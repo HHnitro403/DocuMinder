@@ -1,0 +1,5 @@
+{
+  "name": "DocuMinder",
+  "description": "Document expiration tracker with local/cloud sync capabilities via PocketBase.",
+  "requestFramePermissions": []
+}
