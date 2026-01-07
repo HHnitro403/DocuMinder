@@ -14,7 +14,7 @@ export interface DocItem {
 export interface AppConfig {
   usePocketBase: boolean;
   pbUrl: string;
-  pbAuthToken: string;
+  pbAuthToken: string; // Legacy/Fallback static token
 }
 
 @Injectable({
@@ -23,7 +23,6 @@ export interface AppConfig {
 export class DataService {
   // Hardcoded Schema Collections
   private readonly COL_NOTES = 'Notes';
-  private readonly COL_OBSERVATIONS = 'Observations';
 
   // Signals
   documents = signal<DocItem[]>([]);
@@ -33,12 +32,23 @@ export class DataService {
     pbAuthToken: ''
   });
 
+  // Token obtained from active login session
+  private runtimeToken = signal<string>('');
+
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
 
   constructor() {
     this.loadConfig();
     this.loadDocuments();
+  }
+
+  setRuntimeToken(token: string) {
+    this.runtimeToken.set(token);
+    // Reload data with new credentials if in PB mode
+    if (this.config().usePocketBase) {
+      this.loadDocuments();
+    }
   }
 
   // --- Safe Storage Wrappers ---
@@ -177,16 +187,22 @@ export class DataService {
   }
 
   // --- PocketBase Implementation ---
+  
+  // Helper to get the best available token
+  private getAuthToken(): string {
+      return this.runtimeToken() || this.config().pbAuthToken;
+  }
 
   private async loadFromPocketBase() {
-    const { pbUrl, pbAuthToken } = this.config();
+    const { pbUrl } = this.config();
+    const token = this.getAuthToken();
     
-    // Fetch Notes (Main Collection)
-    // We attempt to expand 'Observations' if a relation exists, but will also rely on flat fields
-    // Assuming 'Notes' collection has fields: Note, NoteObservation, Category, expiration_date
+    // If no token (not logged in and no static token), we can't fetch private data
+    if (!token) return;
+
     const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records?sort=-created`, {
       headers: {
-        'Authorization': pbAuthToken
+        'Authorization': token
       }
     });
 
@@ -198,7 +214,6 @@ export class DataService {
     const mappedDocs: DocItem[] = result.items.map((item: any) => ({
       id: item.id,
       title: item.Note || 'Untitled',
-      // Priority: Check if there is an expanded observation, otherwise use the text field in the Note itself
       details: item.NoteObservation || '', 
       category: item.Category || 'General',
       expirationDate: item.expiration_date || item.created,
@@ -209,12 +224,12 @@ export class DataService {
   }
 
   private async addToPocketBase(doc: Omit<DocItem, 'id' | 'created'>) {
-    const { pbUrl, pbAuthToken } = this.config();
+    const { pbUrl } = this.config();
+    const token = this.getAuthToken();
 
-    // 1. Create the Note in 'Notes' collection
     const notePayload = {
       Note: doc.title,
-      NoteObservation: doc.details, // Storing in Notes table for now as per schema image
+      NoteObservation: doc.details,
       Category: doc.category,
       expiration_date: doc.expirationDate,
     };
@@ -223,7 +238,7 @@ export class DataService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': pbAuthToken
+        'Authorization': token
       },
       body: JSON.stringify(notePayload)
     });
@@ -232,20 +247,16 @@ export class DataService {
         const err = await response.json();
         throw new Error(JSON.stringify(err));
     }
-
-    // Optional: If we were fully using the 'Observations' collection as a separate entity:
-    // We would take the response.id (new note ID) and create a record in 'Observations'
-    // pointing to it. For now, we respect the image schema which has 'NoteObservation' in 'Notes'.
   }
 
   private async deleteFromPocketBase(id: string) {
-    const { pbUrl, pbAuthToken } = this.config();
+    const { pbUrl } = this.config();
+    const token = this.getAuthToken();
     
-    // Delete from Notes
     const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records/${id}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': pbAuthToken
+        'Authorization': token
       }
     });
 
