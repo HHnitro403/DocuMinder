@@ -1,12 +1,12 @@
 
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
 export interface DocItem {
   id: string;
-  title: string; // Maps to 'Note' in PB Schema
-  details: string; // Maps to 'NoteObservation' in PB Schema
-  category: string; // New field: Maps to 'Category'
-  expirationDate: string; // ISO Date String. Needs 'expiration_date' column in PB
+  title: string;        // Maps to 'Note' in PB
+  details: string;      // Maps to 'NoteObservation' in PB OR 'Observations' collection
+  category: string;     // Maps to 'Category' in PB
+  expirationDate: string; // Maps to 'expiration_date' in PB
   created: string;
   notified?: boolean;
 }
@@ -14,7 +14,6 @@ export interface DocItem {
 export interface AppConfig {
   usePocketBase: boolean;
   pbUrl: string;
-  pbCollection: string;
   pbAuthToken: string;
 }
 
@@ -22,12 +21,15 @@ export interface AppConfig {
   providedIn: 'root'
 })
 export class DataService {
+  // Hardcoded Schema Collections
+  private readonly COL_NOTES = 'Notes';
+  private readonly COL_OBSERVATIONS = 'Observations';
+
   // Signals
   documents = signal<DocItem[]>([]);
   config = signal<AppConfig>({
     usePocketBase: false,
     pbUrl: 'http://127.0.0.1:8090',
-    pbCollection: 'notes',
     pbAuthToken: ''
   });
 
@@ -177,9 +179,12 @@ export class DataService {
   // --- PocketBase Implementation ---
 
   private async loadFromPocketBase() {
-    const { pbUrl, pbCollection, pbAuthToken } = this.config();
+    const { pbUrl, pbAuthToken } = this.config();
     
-    const response = await fetch(`${pbUrl}/api/collections/${pbCollection}/records?sort=-created`, {
+    // Fetch Notes (Main Collection)
+    // We attempt to expand 'Observations' if a relation exists, but will also rely on flat fields
+    // Assuming 'Notes' collection has fields: Note, NoteObservation, Category, expiration_date
+    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records?sort=-created`, {
       headers: {
         'Authorization': pbAuthToken
       }
@@ -193,8 +198,9 @@ export class DataService {
     const mappedDocs: DocItem[] = result.items.map((item: any) => ({
       id: item.id,
       title: item.Note || 'Untitled',
-      details: item.NoteObservation || '',
-      category: item.Category || 'General', // Default to General if field missing
+      // Priority: Check if there is an expanded observation, otherwise use the text field in the Note itself
+      details: item.NoteObservation || '', 
+      category: item.Category || 'General',
       expirationDate: item.expiration_date || item.created,
       created: item.created
     }));
@@ -203,34 +209,40 @@ export class DataService {
   }
 
   private async addToPocketBase(doc: Omit<DocItem, 'id' | 'created'>) {
-    const { pbUrl, pbCollection, pbAuthToken } = this.config();
+    const { pbUrl, pbAuthToken } = this.config();
 
-    // Mapping App schema to PB schema
-    const payload = {
+    // 1. Create the Note in 'Notes' collection
+    const notePayload = {
       Note: doc.title,
-      NoteObservation: doc.details,
-      Category: doc.category, // New field mapping
+      NoteObservation: doc.details, // Storing in Notes table for now as per schema image
+      Category: doc.category,
       expiration_date: doc.expirationDate,
     };
 
-    const response = await fetch(`${pbUrl}/api/collections/${pbCollection}/records`, {
+    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': pbAuthToken
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(notePayload)
     });
 
     if (!response.ok) {
         const err = await response.json();
         throw new Error(JSON.stringify(err));
     }
+
+    // Optional: If we were fully using the 'Observations' collection as a separate entity:
+    // We would take the response.id (new note ID) and create a record in 'Observations'
+    // pointing to it. For now, we respect the image schema which has 'NoteObservation' in 'Notes'.
   }
 
   private async deleteFromPocketBase(id: string) {
-    const { pbUrl, pbCollection, pbAuthToken } = this.config();
-    const response = await fetch(`${pbUrl}/api/collections/${pbCollection}/records/${id}`, {
+    const { pbUrl, pbAuthToken } = this.config();
+    
+    // Delete from Notes
+    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': pbAuthToken

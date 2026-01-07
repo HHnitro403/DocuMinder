@@ -65,17 +65,20 @@
                 <label class="block text-sm font-medium text-gray-300 mb-1">Server URL</label>
                 <input formControlName="pbUrl" type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="http://127.0.0.1:8090">
               </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Collection Name</label>
-                <input formControlName="pbCollection" type="text" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="notes">
-                <p class="text-xs text-gray-500 mt-1">Expected schema: Note (text), NoteObservation (text), expiration_date (date)</p>
+              
+              <div class="bg-gray-900/50 p-3 rounded border border-gray-700">
+                 <p class="text-xs text-gray-400 mb-1">Target Collections:</p>
+                 <div class="flex gap-2">
+                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">users</span>
+                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">Notes</span>
+                    <span class="px-2 py-1 bg-gray-800 rounded text-xs text-emerald-400 border border-gray-700">Observations</span>
+                 </div>
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">Auth Token (Optional)</label>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Auth Token / API Key</label>
                 <input formControlName="pbAuthToken" type="password" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-emerald-500 focus:outline-none" placeholder="Bearer ...">
-                <p class="text-xs text-gray-500 mt-1">Required if collection rules are private.</p>
+                <p class="text-xs text-gray-500 mt-1">Required for secure access to the database.</p>
               </div>
             </div>
           } @else {
