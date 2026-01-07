@@ -5,6 +5,7 @@ export interface DocItem {
   id: string;
   title: string; // Maps to 'Note' in PB Schema
   details: string; // Maps to 'NoteObservation' in PB Schema
+  category: string; // New field: Maps to 'Category'
   expirationDate: string; // ISO Date String. Needs 'expiration_date' column in PB
   created: string;
   notified?: boolean;
@@ -14,7 +15,7 @@ export interface AppConfig {
   usePocketBase: boolean;
   pbUrl: string;
   pbCollection: string;
-  pbAuthToken: string; // Simplified for this demo (usually stored securely)
+  pbAuthToken: string;
 }
 
 @Injectable({
@@ -89,7 +90,6 @@ export class DataService {
     } catch (e: any) {
       console.error(e);
       this.error.set('Failed to load data: ' + (e.message || 'Unknown error'));
-      // Fallback to empty if failed
       if (this.documents().length === 0) this.documents.set([]);
     } finally {
       this.isLoading.set(false);
@@ -144,16 +144,12 @@ export class DataService {
   }
 
   private generateId(): string {
-    // Try secure UUID first, fall back to random string if environment is insecure
     try {
       if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
         return crypto.randomUUID();
       }
-    } catch {
-      // Ignore SecurityError
-    }
+    } catch { }
 
-    // Fallback UUID v4 generator
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
       const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
       return v.toString(16);
@@ -178,12 +174,10 @@ export class DataService {
     this.setSafeItem('documinder_data', JSON.stringify(updated));
   }
 
-  // --- PocketBase Implementation (Fetch wrapper) ---
+  // --- PocketBase Implementation ---
 
   private async loadFromPocketBase() {
     const { pbUrl, pbCollection, pbAuthToken } = this.config();
-    // Using standard fetch to avoid dependencies. 
-    // Assumes 'notes' collection has 'Note' (title), 'NoteObservation' (details), and 'expiration_date' (date)
     
     const response = await fetch(`${pbUrl}/api/collections/${pbCollection}/records?sort=-created`, {
       headers: {
@@ -198,9 +192,10 @@ export class DataService {
     // Map PB schema to App schema
     const mappedDocs: DocItem[] = result.items.map((item: any) => ({
       id: item.id,
-      title: item.Note || 'Untitled', // Mapping from user schema
-      details: item.NoteObservation || '', // Mapping from user schema
-      expirationDate: item.expiration_date || item.created, // Fallback if schema doesn't match
+      title: item.Note || 'Untitled',
+      details: item.NoteObservation || '',
+      category: item.Category || 'General', // Default to General if field missing
+      expirationDate: item.expiration_date || item.created,
       created: item.created
     }));
 
@@ -214,8 +209,8 @@ export class DataService {
     const payload = {
       Note: doc.title,
       NoteObservation: doc.details,
+      Category: doc.category, // New field mapping
       expiration_date: doc.expirationDate,
-      // UserID would be handled by PB auth context usually, or we pass it if we have it
     };
 
     const response = await fetch(`${pbUrl}/api/collections/${pbCollection}/records`, {

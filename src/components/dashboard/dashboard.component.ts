@@ -48,6 +48,7 @@ export class DashboardComponent {
   constructor() {
     this.docForm = this.fb.group({
       title: ['', Validators.required],
+      category: ['General', Validators.required],
       details: [''],
       expirationDate: ['', Validators.required]
     });
@@ -62,10 +63,11 @@ export class DashboardComponent {
       const formVal = this.docForm.value;
       await this.dataService.addDocument({
         title: formVal.title,
+        category: formVal.category,
         details: formVal.details,
         expirationDate: new Date(formVal.expirationDate).toISOString()
       });
-      this.docForm.reset();
+      this.docForm.reset({category: 'General'});
       this.showForm.set(false);
     }
   }

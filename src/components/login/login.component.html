@@ -1,0 +1,68 @@
+
+<div class="flex items-center justify-center min-h-screen bg-gray-900 p-4">
+  <div class="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden">
+    
+    <!-- Header -->
+    <div class="bg-gray-700/50 p-8 text-center border-b border-gray-700">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-900 mb-4 shadow-inner">
+        <i class="fa-solid fa-file-shield text-emerald-500 text-3xl"></i>
+      </div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">Docu<span class="text-emerald-500">Minder</span></h1>
+      <p class="text-gray-400 text-sm mt-2">Secure Document Management</p>
+    </div>
+
+    <!-- Form -->
+    <div class="p-8">
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-6">
+        
+        @if (errorMsg()) {
+          <div class="bg-red-500/10 border border-red-500/50 text-red-200 text-sm p-3 rounded-lg flex items-center gap-2 animate-pulse">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            {{ errorMsg() }}
+          </div>
+        }
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Username</label>
+            <div class="relative">
+              <span class="absolute left-3 top-3 text-gray-500"><i class="fa-solid fa-user"></i></span>
+              <input 
+                formControlName="username" 
+                type="text" 
+                class="w-full bg-gray-900 border border-gray-600 rounded-lg py-2.5 pl-10 pr-4 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder-gray-600"
+                placeholder="Enter username"
+              >
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1">Password</label>
+            <div class="relative">
+              <span class="absolute left-3 top-3 text-gray-500"><i class="fa-solid fa-lock"></i></span>
+              <input 
+                formControlName="password" 
+                type="password" 
+                class="w-full bg-gray-900 border border-gray-600 rounded-lg py-2.5 pl-10 pr-4 text-white focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder-gray-600"
+                placeholder="Enter password"
+              >
+            </div>
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          [disabled]="loginForm.invalid"
+          class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 shadow-lg shadow-emerald-900/50"
+        >
+          Sign In
+        </button>
+      </form>
+    </div>
+    
+    <div class="bg-gray-900/50 p-4 text-center border-t border-gray-700">
+      <p class="text-xs text-gray-500">Default Access: <span class="font-mono text-gray-400">docuser / docuser</span></p>
+    </div>
+
+  </div>
+</div>
