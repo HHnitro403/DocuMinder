@@ -84,7 +84,7 @@ export class AuthService {
 
   private loginLocal(email: string, pass: string): boolean {
     // Local fallback for offline/demo mode
-    if ((email === 'admin@local' || email === 'docuser') && pass === 'docuser') {
+    if (email === 'docuser@docuser.com' && pass === 'docuser') {
       const userData: UserData = {
         id: 'local-admin',
         username: 'Local Admin',

@@ -41,7 +41,7 @@ export class LoginComponent {
         if (isPb) {
              this.errorMsg.set('Invalid Database Credentials. Please check your email and password.');
         } else {
-             this.errorMsg.set('Invalid credentials. Default is admin@local/docuser');
+             this.errorMsg.set('Invalid credentials. Default is docuser@docuser.com/docuser');
         }
         this.loginForm.get('password')?.reset();
       }
