@@ -39,9 +39,33 @@ export class DataService {
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
 
+  // Timeout for fetch requests (10 seconds)
+  private readonly FETCH_TIMEOUT = 10000;
+
   constructor() {
     this.loadConfig();
     this.loadDocuments();
+  }
+
+  // Helper to add timeout to fetch requests
+  private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout: Server did not respond in time');
+      }
+      throw error;
+    }
   }
 
   setRuntimeToken(token: string) {
@@ -100,9 +124,10 @@ export class DataService {
       } else {
         this.loadFromLocal();
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      this.error.set('Failed to load data: ' + (e.message || 'Unknown error'));
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      this.error.set('Failed to load data: ' + errorMessage);
       if (this.documents().length === 0) this.documents.set([]);
     } finally {
       this.isLoading.set(false);
@@ -118,8 +143,9 @@ export class DataService {
         this.addToLocal(doc);
       }
       await this.loadDocuments(); // Refresh
-    } catch (e: any) {
-      this.error.set('Failed to save: ' + e.message);
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      this.error.set('Failed to save: ' + errorMessage);
     } finally {
       this.isLoading.set(false);
     }
@@ -134,8 +160,9 @@ export class DataService {
         this.deleteFromLocal(id);
       }
       await this.loadDocuments();
-    } catch (e: any) {
-      this.error.set('Failed to delete: ' + e.message);
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      this.error.set('Failed to delete: ' + errorMessage);
     } finally {
       this.isLoading.set(false);
     }
@@ -145,14 +172,19 @@ export class DataService {
   async testConnection(url: string): Promise<{success: boolean, message: string}> {
     try {
       // PocketBase usually provides a health endpoint
-      const response = await fetch(`${url}/api/health`);
+      const response = await this.fetchWithTimeout(`${url}/api/health`);
       if (response.ok) {
-        const data = await response.json();
-        return { success: true, message: `Connected! Code: ${data.code}` };
+        try {
+          const data = await response.json();
+          return { success: true, message: `Connected! Code: ${data.code}` };
+        } catch {
+          return { success: true, message: 'Connected (no JSON response)' };
+        }
       }
       return { success: false, message: `Server responded with ${response.status}` };
-    } catch (e: any) {
-      return { success: false, message: 'Unreachable: ' + e.message };
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error';
+      return { success: false, message: 'Unreachable: ' + message };
     }
   }
 
@@ -163,7 +195,8 @@ export class DataService {
     if (data) {
       try {
         this.documents.set(JSON.parse(data));
-      } catch {
+      } catch (e) {
+        console.error('Failed to parse documents from localStorage', e);
         this.documents.set([]);
       }
     } else {
@@ -176,7 +209,9 @@ export class DataService {
       if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
         return crypto.randomUUID();
       }
-    } catch { }
+    } catch (e) {
+      console.warn('crypto.randomUUID() not available, using fallback', e);
+    }
 
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
       const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -217,7 +252,7 @@ export class DataService {
     if (!token) return;
 
     // Fetch Notes
-    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records?sort=-created`, {
+    const response = await this.fetchWithTimeout(`${pbUrl}/api/collections/${this.COL_NOTES}/records?sort=-created`, {
       headers: { 'Authorization': token }
     });
 
@@ -249,7 +284,7 @@ export class DataService {
       expiration_date: doc.expirationDate,
     };
 
-    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records`, {
+    const response = await this.fetchWithTimeout(`${pbUrl}/api/collections/${this.COL_NOTES}/records`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -259,8 +294,14 @@ export class DataService {
     });
 
     if (!response.ok) {
-        const err = await response.json();
-        throw new Error(JSON.stringify(err));
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+            const err = await response.json();
+            errorMessage = JSON.stringify(err);
+        } catch {
+            // Response is not JSON, use status text
+        }
+        throw new Error(errorMessage);
     }
 
     const newNote = await response.json();
@@ -274,8 +315,8 @@ export class DataService {
             details: doc.details,
             // Assuming the schema might simply default these or they are optional
         };
-        
-        await fetch(`${pbUrl}/api/collections/${this.COL_OBSERVATIONS}/records`, {
+
+        const obsResponse = await this.fetchWithTimeout(`${pbUrl}/api/collections/${this.COL_OBSERVATIONS}/records`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -283,9 +324,20 @@ export class DataService {
             },
             body: JSON.stringify(obsPayload)
         });
+
+        if (!obsResponse.ok) {
+            let errorDetails = `HTTP ${obsResponse.status}`;
+            try {
+                const errData = await obsResponse.json();
+                errorDetails = JSON.stringify(errData);
+            } catch {
+                // Not JSON, use status
+            }
+            console.error('Failed to write to Observations table. Schema verification needed.', errorDetails);
+        }
         // We don't fail the whole operation if this secondary write fails (e.g. if schema differs slightly)
     } catch (obsErr) {
-        console.warn('Could not write to Observations table. Verify schema.', obsErr);
+        console.error('Could not write to Observations table. Network or configuration error.', obsErr);
     }
   }
 
@@ -293,7 +345,7 @@ export class DataService {
     const { pbUrl } = this.config();
     const token = this.getAuthToken();
     
-    const response = await fetch(`${pbUrl}/api/collections/${this.COL_NOTES}/records/${id}`, {
+    const response = await this.fetchWithTimeout(`${pbUrl}/api/collections/${this.COL_NOTES}/records/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': token
