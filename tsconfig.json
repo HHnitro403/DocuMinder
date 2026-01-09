@@ -18,6 +18,11 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
     "paths": {
       "@/*": [
         "./*"
@@ -28,6 +33,5 @@
     "./index.tsx"
   ],
   "angularCompilerOptions": {
-    "disableTypeScriptVersionCheck": true
   }
 }

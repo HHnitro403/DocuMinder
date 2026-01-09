@@ -22,9 +22,33 @@ export class AuthService {
   currentUser = signal<UserData | null>(null);
   isAdmin = signal<boolean>(false);
 
+  // Timeout for fetch requests (10 seconds)
+  private readonly FETCH_TIMEOUT = 10000;
+
   constructor() {
     // Check session storage to persist login across reloads
     this.restoreSession();
+  }
+
+  // Helper to add timeout to fetch requests
+  private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout: Server did not respond in time');
+      }
+      throw error;
+    }
   }
 
   private restoreSession() {
@@ -54,7 +78,7 @@ export class AuthService {
   private async loginPocketBase(identity: string, pass: string, url: string): Promise<boolean> {
     try {
       // In PocketBase, the 'identity' field for auth-with-password can be the email
-      const response = await fetch(`${url}/api/collections/users/auth-with-password`, {
+      const response = await this.fetchWithTimeout(`${url}/api/collections/users/auth-with-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identity, password: pass })
@@ -63,18 +87,25 @@ export class AuthService {
       if (!response.ok) return false;
 
       const data = await response.json();
+
+      // Validate response structure
+      if (!data || !data.record || !data.record.id) {
+        console.error('Invalid PocketBase auth response structure', data);
+        return false;
+      }
+
       const record = data.record;
-      
+
       const userData: UserData = {
         id: record.id,
         // Fallback: If username field is empty/missing, use name or email
-        username: record.username || record.name || record.email, 
-        email: record.email,
-        name: record.name,
-        role: record.Role || 'user' // Mapping 'Role' field from PB
+        username: record.username || record.name || record.email || 'Unknown User',
+        email: record.email || '',
+        name: record.name || '',
+        role: record.Role || record.role || 'user' // Try both 'Role' and 'role' fields
       };
 
-      this.saveSession(userData, data.token);
+      this.saveSession(userData, data.token || '');
       return true;
     } catch (e) {
       console.error('Login error', e);
@@ -143,12 +174,16 @@ export class AuthService {
   private setSessionItem(key: string, value: string): void {
     try {
       sessionStorage.setItem(key, value);
-    } catch (e) { }
+    } catch (e) {
+      console.warn(`Failed to save session item: ${key}`, e);
+    }
   }
 
   private removeSessionItem(key: string): void {
     try {
       sessionStorage.removeItem(key);
-    } catch (e) { }
+    } catch (e) {
+      console.warn(`Failed to remove session item: ${key}`, e);
+    }
   }
 }
